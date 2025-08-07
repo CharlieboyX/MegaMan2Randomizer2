@@ -1,22 +1,93 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
-using System.Reactive.Linq;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Reactive.Linq;
+using System.Threading.Tasks;
 
 namespace RandomizerHost.Views
 {
     public class MainWindow : Window
     {
-        //
-        // Constructor
-        //
 
-        public MainWindow()
+    public async Task NotifyUpdateAsync(string latestVersion)
+    {
+      var yesButton = new Button { Content = "Yes", HorizontalAlignment = HorizontalAlignment.Right };
+      var noButton = new Button { Content = "No", HorizontalAlignment = HorizontalAlignment.Left };
+
+      var stackPanel = new StackPanel
+      {
+        Children =
+    {
+        new TextBlock
+        {
+            Text = $"A new version ({latestVersion}) is available. Would you like to update?",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 10)
+        },
+        new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children = { yesButton, noButton }
+        }
+    }
+      };
+
+      var dialog = new Window
+      {
+        Content = stackPanel,
+        Width = 300,
+        Height = 150
+      };
+
+      var tcs = new TaskCompletionSource<bool>();
+      yesButton.Click += (_, __) =>
+      {
+        tcs.SetResult(true);
+        dialog.Close();
+      };
+      noButton.Click += (_, __) =>
+      {
+        tcs.SetResult(false);
+        dialog.Close();
+      };
+
+      dialog.Show();
+      var result = await tcs.Task;
+    }
+
+    public async Task DownloadUpdateAsync(string downloadUrl, string savePath)
+    {
+      using var client = new HttpClient();
+      var response = await client.GetAsync(downloadUrl);
+      response.EnsureSuccessStatusCode();
+
+      await using var fileStream = new FileStream(savePath, FileMode.Create);
+      await response.Content.CopyToAsync(fileStream);
+    }
+    public async Task DownloadAndInstallUpdateAsync()
+    {
+      string downloadUrl = "https://github.com/squid-man/MegaMan2Randomizer2/releases"; // URL
+      string savePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RandomizerHost", "latest-version.zip");
+      await DownloadUpdateAsync(downloadUrl, savePath);
+      // Logic to install the update (e.g., extract and replace files)
+      // This is a placeholder; actual implementation will depend on your update mechanism
+      Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{savePath}\""));
+    }
+
+    //
+    // Constructor
+    //
+
+    public MainWindow()
         {
             InitializeComponent();
 #if DEBUG
